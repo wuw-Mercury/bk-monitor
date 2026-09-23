@@ -218,7 +218,15 @@ paths:
   /app/apm/query_apm_topo_node/:
     get:
       operationId: query_apm_topo_node
-      description: 查询topo节点
+      description: 查询拓扑节点；include_heartbeat=true 时返回服务来源、数据心跳及日志和性能分析独有节点
+      parameters:
+        - in: query
+          name: include_heartbeat
+          required: false
+          description: 默认保留旧字段和节点范围；开启后追加 source、heartbeat，包含仅由日志或性能分析发现的节点。心跳原样返回，不计算数据状态。
+          schema:
+            type: boolean
+            default: false
       x-bk-apigateway-resource:
         isPublic: false
         allowApplyPermission: true

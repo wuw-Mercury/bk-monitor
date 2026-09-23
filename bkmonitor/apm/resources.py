@@ -777,19 +777,37 @@ class AppConfigResource(Resource):
 
 
 class QueryTopoNodeResource(Resource):
+    """默认保留旧拓扑协议；显式读取心跳时包含日志、性能分析独有节点。"""
+
     class RequestSerializer(serializers.Serializer):
         bk_biz_id = serializers.IntegerField(label="业务id")
         app_name = serializers.CharField(label="应用名称", max_length=50)
         topo_key = serializers.CharField(label="Topo Key", required=False, allow_null=True)
+        include_heartbeat = serializers.BooleanField(
+            label="返回服务来源与数据心跳，并包含仅由日志或性能分析发现的节点", default=False
+        )
 
     class NodeResponseSerializer(serializers.ModelSerializer):
         class Meta:
             model = TopoNode
-            fields = ("extra_data", "system", "platform", "sdk", "topo_key", "created_at", "updated_at")
+            fields = (
+                "extra_data",
+                "system",
+                "platform",
+                "sdk",
+                "topo_key",
+                "created_at",
+                "updated_at",
+                "source",
+                "heartbeat",
+            )
 
-        def to_representation(self, instance):
+        def to_representation(self, instance: TopoNode) -> dict[str, Any]:
             data = super().to_representation(instance)
             data["extra_data"] = instance.extra_data
+            if not self.context.get("include_heartbeat", False):
+                data.pop("source")
+                data.pop("heartbeat")
             return data
 
     def perform_request(self, data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -801,7 +819,12 @@ class QueryTopoNodeResource(Resource):
             filter_params["topo_key"] = data["topo_key"]
 
         res = []
-        nodes = TopoNode.get_service_queryset(**filter_params)
+        include_heartbeat: bool = data.get("include_heartbeat", False)
+        nodes = (
+            TopoNode.objects.filter(**filter_params)
+            if include_heartbeat
+            else TopoNode.get_service_queryset(**filter_params)
+        )
         for n in nodes:
             extra = n.extra_data
             if (
@@ -811,7 +834,7 @@ class QueryTopoNodeResource(Resource):
                 # 过滤掉非 http 类型的自定义服务(目前还没有支持)
                 continue
 
-            res.append(self.NodeResponseSerializer(instance=n).data)
+            res.append(self.NodeResponseSerializer(instance=n, context={"include_heartbeat": include_heartbeat}).data)
         return res
 
 

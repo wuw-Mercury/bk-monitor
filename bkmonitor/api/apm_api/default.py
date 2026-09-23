@@ -97,7 +97,10 @@ class QueryInstanceResource(ApmAPIGWResource):
 
 class QueryTopoNodeResource(ApmAPIGWResource):
     """
-    查询topo节点信息
+    查询拓扑节点信息。
+
+    include_heartbeat 默认为 false；传 true 时追加 source、heartbeat，
+    并包含仅由日志或性能分析发现的节点。数据源启停的展示过滤由调用方负责。
     """
 
     action = "/app/apm/query_apm_topo_node/"
